@@ -12,6 +12,24 @@ export interface Store {
 export interface Warehouse {
   id: ID;
   store_id: ID;
+  store_name?: string;
+  store_code?: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+  created_at?: ISODateTime;
+  updated_at?: ISODateTime;
+}
+
+export interface CreateWarehousePayload {
+  store_id: ID;
+  code: string;
+  name: string;
+  is_active?: boolean;
+}
+
+export interface UpdateWarehousePayload {
+  store_id?: ID;
   code: string;
   name: string;
   is_active: boolean;
@@ -20,9 +38,34 @@ export interface Warehouse {
 export interface Terminal {
   id: ID;
   store_id: ID;
+  store_name?: string;
+  store_code?: string;
   code: string;
   name: string;
   is_active: boolean;
+  assigned_cashier_id?: ID | null;
+  cashier_name?: string;
+  cashier_username?: string;
+  has_active_shift?: boolean;
+  active_shift_id?: string;
+  active_cashier_id?: string;
+  active_cashier_name?: string;
+  active_cashier_username?: string;
+  created_at?: ISODateTime;
+  updated_at?: ISODateTime;
+}
+
+export interface CreateTerminalPayload {
+  store_id: ID;
+  code: string;
+  name: string;
+  assigned_cashier_id?: ID | null;
+}
+
+export interface UpdateTerminalPayload {
+  name: string;
+  is_active?: boolean;
+  assigned_cashier_id?: ID | null;
 }
 
 export interface Shift {

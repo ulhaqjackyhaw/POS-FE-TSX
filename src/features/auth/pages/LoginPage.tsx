@@ -17,10 +17,15 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+import { isGlobalRole, getFocusMenuForRole } from '../../../utils/roleNavigation';
+import { storesApi } from '../../../api/stores.api';
+import { shiftsApi } from '../../../api/shifts.api';
+import { Store } from '../../../types/store';
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setAuth } = useAppContextStore();
+  const { setAuth, setActiveStore, setActiveTerminal, setActiveWarehouse } = useAppContextStore();
   const { toast } = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -59,11 +64,79 @@ export const LoginPage: React.FC = () => {
 
       toast(`Selamat datang kembali, ${userProfile.full_name || userProfile.username}!`, 'success');
 
+      const isGlobal = isGlobalRole(userProfile.role);
+      const targetMenu = getFocusMenuForRole(userProfile.role);
+
+      // If user is not global (e.g. cashier, manager, warehouse staff) and branch is determined
+      if (!isGlobal) {
+        let storeToSet: Store | null = null;
+        try {
+          if (userProfile.store_ids && userProfile.store_ids.length === 1) {
+            storeToSet = await storesApi.getStore(userProfile.store_ids[0]);
+          } else {
+            const availableStores = await storesApi.listStores();
+            if (availableStores.length === 1) {
+              storeToSet = availableStores[0];
+            }
+          }
+
+          if (storeToSet) {
+            const [termList, whList] = await Promise.all([
+              storesApi.listTerminals(storeToSet.id),
+              storesApi.listWarehouses(storeToSet.id),
+            ]);
+
+            setActiveStore(storeToSet.id, storeToSet.name);
+            if (whList.length > 0) {
+              setActiveWarehouse(whList[0].id);
+            }
+
+            // Cashier specific routing
+            if (userProfile.role === 'cashier') {
+              try {
+                const activeShift = await shiftsApi.getActiveShift();
+                if (activeShift && activeShift.terminal_id) {
+                  const shiftTerm = termList.find((t) => t.id === activeShift.terminal_id);
+                  setActiveTerminal(activeShift.terminal_id, shiftTerm?.code || 'POS');
+                  toast(`Melanjutkan sesi shift aktif kasir (${shiftTerm?.code || 'POS'})`, 'success');
+                  navigate('/pos', { replace: true });
+                  return;
+                }
+              } catch (e) {
+                console.warn('Check active shift error on cashier login:', e);
+              }
+
+              // Cashier has NO active shift yet -> Show available inactive POS cashier terminals!
+              toast(`Pilih meja kasir yang kosong/tersedia untuk bertugas`, 'info');
+              navigate('/select-terminal', { replace: true });
+              return;
+            }
+
+            const assignedTerm = termList.find((t) => t.assigned_cashier_id === userProfile.id);
+            const termToUse = assignedTerm || (termList.length > 0 ? termList[0] : null);
+
+            if (termToUse) {
+              setActiveTerminal(termToUse.id, termToUse.code);
+            }
+
+            toast(`Cabang operasional: ${storeToSet.name}`, 'info');
+            navigate(targetMenu, { replace: true });
+            return;
+          }
+        } catch (e) {
+          console.warn('Auto store assignment error:', e);
+        }
+      }
+
       const origin = (location.state as { from?: { pathname?: string } })?.from?.pathname;
-      if (origin && origin !== '/login') {
+      if (origin && origin !== '/login' && origin !== '/select-store') {
         navigate(origin, { replace: true });
       } else {
-        navigate('/select-store', { replace: true });
+        if (userProfile.role === 'cashier') {
+          navigate('/select-terminal', { replace: true });
+        } else {
+          navigate(isGlobal ? '/select-store' : targetMenu, { replace: true });
+        }
       }
     } catch (err: unknown) {
       const msg =

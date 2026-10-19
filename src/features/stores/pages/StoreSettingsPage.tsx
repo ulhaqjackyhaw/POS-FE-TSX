@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { storesApi } from '../../../api/stores.api';
+import { warehousesApi } from '../../../api/warehouses.api';
 import { Store, Terminal, Warehouse } from '../../../types/store';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -8,7 +10,7 @@ import { LoadingState } from '../../../components/feedback/LoadingState';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import { useToast } from '../../../components/feedback/Toast';
 import { usePermission } from '../../../hooks/usePermission';
-import { Plus, Monitor, Warehouse as WarehouseIcon, MapPin } from 'lucide-react';
+import { Plus, Monitor, Warehouse as WarehouseIcon, MapPin, ExternalLink, Sparkles } from 'lucide-react';
 
 export const StoreSettingsPage: React.FC = () => {
   const { check, isOwnerOrAdmin } = usePermission();
@@ -29,6 +31,13 @@ export const StoreSettingsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Add warehouse modal for selected store
+  const [isAddWarehouseModalOpen, setIsAddWarehouseModalOpen] = useState(false);
+  const [newWhCode, setNewWhCode] = useState('');
+  const [newWhName, setNewWhName] = useState('');
+  const [isSubmittingWh, setIsSubmittingWh] = useState(false);
+  const [whFormError, setWhFormError] = useState<string | null>(null);
+
   const loadStores = async () => {
     setIsLoading(true);
     try {
@@ -48,22 +57,23 @@ export const StoreSettingsPage: React.FC = () => {
     loadStores();
   }, []);
 
+  const loadStoreDetails = async (storeId: string) => {
+    try {
+      const [terms, whs] = await Promise.all([
+        storesApi.listTerminals(storeId),
+        storesApi.listWarehouses(storeId),
+      ]);
+      setTerminals(terms || []);
+      setWarehouses(whs || []);
+    } catch {
+      setTerminals([]);
+      setWarehouses([]);
+    }
+  };
+
   useEffect(() => {
     if (!selectedStore) return;
-    async function loadDetails() {
-      try {
-        const [terms, whs] = await Promise.all([
-          storesApi.listTerminals(selectedStore!.id),
-          storesApi.listWarehouses(selectedStore!.id),
-        ]);
-        setTerminals(terms || []);
-        setWarehouses(whs || []);
-      } catch {
-        setTerminals([]);
-        setWarehouses([]);
-      }
-    }
-    loadDetails();
+    loadStoreDetails(selectedStore.id);
   }, [selectedStore]);
 
   const handleCreateStore = async (e: React.FormEvent) => {
@@ -82,18 +92,51 @@ export const StoreSettingsPage: React.FC = () => {
         address: address.trim() || undefined,
       });
 
-      toast(`Cabang "${newStore.name}" berhasil dibuat!`, 'success');
+      toast(`Cabang "${newStore.name}" beserta Gudang Utama & Terminal Kasir berhasil dibuat!`, 'success');
       setIsAddModalOpen(false);
       setCode('');
       setName('');
       setAddress('');
       await loadStores();
+      setSelectedStore(newStore);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal membuat cabang';
       setFormError(msg);
       toast(msg, 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateWarehouse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStore) return;
+    if (!newWhCode.trim() || !newWhName.trim()) {
+      setWhFormError('Kode dan nama gudang wajib diisi.');
+      return;
+    }
+
+    setIsSubmittingWh(true);
+    setWhFormError(null);
+    try {
+      await warehousesApi.createWarehouse({
+        store_id: selectedStore.id,
+        code: newWhCode.trim().toUpperCase(),
+        name: newWhName.trim(),
+        is_active: true,
+      });
+
+      toast(`Gudang "${newWhName.trim()}" berhasil ditambahkan ke cabang ${selectedStore.name}!`, 'success');
+      setIsAddWarehouseModalOpen(false);
+      setNewWhCode('');
+      setNewWhName('');
+      await loadStoreDetails(selectedStore.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menambahkan gudang';
+      setWhFormError(msg);
+      toast(msg, 'error');
+    } finally {
+      setIsSubmittingWh(false);
     }
   };
 
@@ -228,7 +271,32 @@ export const StoreSettingsPage: React.FC = () => {
                       <WarehouseIcon className="w-5 h-5 text-purple-600" />
                       <h3 className="text-base sm:text-lg font-bold text-slate-900">Gudang Penyimpanan Cabang</h3>
                     </div>
-                    <span className="text-sm font-semibold text-slate-600">{warehouses.length} gudang terdaftar</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-600 hidden sm:inline">{warehouses.length} gudang terdaftar</span>
+                      {canCreate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<Plus className="w-3.5 h-3.5" />}
+                          onClick={() => {
+                            setWhFormError(null);
+                            setNewWhCode(selectedStore ? `WH-${selectedStore.code.replace('STORE-', '')}-02` : '');
+                            setNewWhName('');
+                            setIsAddWarehouseModalOpen(true);
+                          }}
+                          className="font-bold border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs py-1.5 px-3"
+                        >
+                          Tambah Gudang
+                        </Button>
+                      )}
+                      <Link
+                        to="/warehouses"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-all border border-indigo-200"
+                      >
+                        <span>Master Gudang</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
                   </div>
 
                   {warehouses.length === 0 ? (
@@ -310,6 +378,110 @@ export const StoreSettingsPage: React.FC = () => {
             size="lg"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
+          />
+
+          {/* Live Auto-Connected Preview */}
+          {code.trim() && (
+            <div className="p-4 bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl space-y-2.5">
+              <div className="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Otomatis Dibuatkan & Terhubung Langsung:</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-sm">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <WarehouseIcon className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Gudang Utama</span>
+                  </div>
+                  <div className="font-mono text-emerald-800 font-black mt-1">
+                    {code.trim().toUpperCase().startsWith('STORE-')
+                      ? 'WH-' + code.trim().toUpperCase().replace('STORE-', '')
+                      : 'WH-' + code.trim().toUpperCase()}
+                  </div>
+                  <div className="text-slate-500 text-[11px] mt-0.5 truncate">
+                    Gudang Utama {name.trim() || 'Cabang'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-sm">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Monitor className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Terminal Kasir 1</span>
+                  </div>
+                  <div className="font-mono text-sky-800 font-black mt-1">
+                    {code.trim().toUpperCase().startsWith('STORE-')
+                      ? 'TERM-01-' + code.trim().toUpperCase().replace('STORE-', '')
+                      : 'TERM-01-' + code.trim().toUpperCase()}
+                  </div>
+                  <div className="text-slate-500 text-[11px] mt-0.5 truncate">
+                    Kasir 1 {name.trim() || 'Cabang'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </form>
+      </Dialog>
+
+      {/* Add Warehouse Modal for Selected Store */}
+      <Dialog
+        isOpen={isAddWarehouseModalOpen}
+        onClose={() => setIsAddWarehouseModalOpen(false)}
+        title={`Tambah Gudang di ${selectedStore?.name || 'Cabang'}`}
+        description="Daftarkan gudang penyimpanan tambahan untuk menampung stok khusus di cabang ini."
+        maxWidth="lg"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={() => setIsAddWarehouseModalOpen(false)}
+              disabled={isSubmittingWh}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              isLoading={isSubmittingWh}
+              onClick={handleCreateWarehouse}
+              className="font-bold bg-purple-600 hover:bg-purple-700"
+            >
+              Simpan Gudang
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleCreateWarehouse} className="space-y-4">
+          {whFormError && (
+            <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-sm font-bold text-rose-800">
+              {whFormError}
+            </div>
+          )}
+
+          <div className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs text-slate-700">
+            Cabang Terhubung:{' '}
+            <strong className="text-slate-900">{selectedStore?.name}</strong>{' '}
+            <span className="font-mono text-indigo-700">({selectedStore?.code})</span>
+          </div>
+
+          <Input
+            label="Kode Gudang *"
+            placeholder="Contoh: WH-BDG-FROZEN"
+            size="lg"
+            value={newWhCode}
+            onChange={(e) => setNewWhCode(e.target.value)}
+            required
+            autoFocus
+          />
+
+          <Input
+            label="Nama Gudang *"
+            placeholder="Contoh: Gudang Makanan Beku Lantai 2"
+            size="lg"
+            value={newWhName}
+            onChange={(e) => setNewWhName(e.target.value)}
+            required
           />
         </form>
       </Dialog>

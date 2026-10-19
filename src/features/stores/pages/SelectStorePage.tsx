@@ -1,18 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storesApi } from '../../../api/stores.api';
+import { shiftsApi } from '../../../api/shifts.api';
 import { Store, Terminal, Warehouse } from '../../../types/store';
 import { useAppContextStore } from '../../../stores/app-context.store';
 import { Button } from '../../../components/ui/Button';
 import { LoadingState } from '../../../components/feedback/LoadingState';
 import { ErrorState } from '../../../components/feedback/ErrorState';
 import { useToast } from '../../../components/feedback/Toast';
-import { Store as StoreIcon, Monitor, Warehouse as WarehouseIcon, ArrowRight, Building, Check } from 'lucide-react';
+import { isGlobalRole, getFocusMenuForRole } from '../../../utils/roleNavigation';
+import {
+  Store as StoreIcon,
+  Monitor,
+  Warehouse as WarehouseIcon,
+  ArrowRight,
+  Building,
+  Check,
+  Lock,
+  LogOut,
+} from 'lucide-react';
 
 export const SelectStorePage: React.FC = () => {
   const navigate = useNavigate();
-  const { setActiveStore, setActiveTerminal, setActiveWarehouse, user } = useAppContextStore();
+  const { setActiveStore, setActiveTerminal, setActiveWarehouse, activeStoreId, activeStoreName, user, logout } = useAppContextStore();
   const { toast } = useToast();
+
+  const isGlobal = isGlobalRole(user?.role);
+  const targetMenu = getFocusMenuForRole(user?.role);
 
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -32,9 +46,63 @@ export const SelectStorePage: React.FC = () => {
     setError(null);
     try {
       const data = await storesApi.listStores();
-      setStores(data);
-      if (data.length === 1) {
-        setSelectedStore(data[0]);
+
+      // If user is not global (e.g. cashier, manager, staff) filter to only assigned stores
+      let accessibleStores = data;
+      if (!isGlobal && user?.store_ids && user.store_ids.length > 0) {
+        const allowedSet = new Set(user.store_ids);
+        accessibleStores = data.filter((s) => allowedSet.has(s.id));
+      }
+
+      setStores(accessibleStores);
+
+      // If branch is already determined for non-global user:
+      // Case 1: activeStoreId is already validly set
+      if (!isGlobal && activeStoreId && accessibleStores.some((s) => s.id === activeStoreId)) {
+        toast(`Cabang Anda telah ditentukan (${activeStoreName}). Mengarahkan ke menu utama...`, 'info');
+        navigate(targetMenu, { replace: true });
+        return;
+      }
+
+      // Case 2: Only 1 store is accessible -> Auto-resolve and redirect immediately
+      if (!isGlobal && accessibleStores.length === 1) {
+        const onlyStore = accessibleStores[0];
+        try {
+          const [termList, whList] = await Promise.all([
+            storesApi.listTerminals(onlyStore.id),
+            storesApi.listWarehouses(onlyStore.id),
+          ]);
+          setActiveStore(onlyStore.id, onlyStore.name);
+          if (whList.length > 0) setActiveWarehouse(whList[0].id);
+
+          if (user?.role === 'cashier') {
+            const activeShift = await shiftsApi.getActiveShift();
+            if (activeShift && activeShift.terminal_id) {
+              const shiftTerm = termList.find((t) => t.id === activeShift.terminal_id);
+              setActiveTerminal(activeShift.terminal_id, shiftTerm?.code || 'POS');
+              navigate('/pos', { replace: true });
+              return;
+            }
+            navigate('/select-terminal', { replace: true });
+            return;
+          }
+
+          if (termList.length > 0) setActiveTerminal(termList[0].id, termList[0].code);
+
+          toast(`Cabang operasional Anda: ${onlyStore.name}`, 'info');
+          navigate(targetMenu, { replace: true });
+          return;
+        } catch (e) {
+          console.warn('Auto configuration error:', e);
+        }
+      }
+
+      // If more than 1 store or global user
+      if (accessibleStores.length === 1) {
+        setSelectedStore(accessibleStores[0]);
+      } else if (activeStoreId) {
+        const current = accessibleStores.find((s) => s.id === activeStoreId);
+        if (current) setSelectedStore(current);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal memuat daftar cabang';
@@ -46,7 +114,7 @@ export const SelectStorePage: React.FC = () => {
 
   useEffect(() => {
     loadStores();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!selectedStore) {
@@ -98,16 +166,16 @@ export const SelectStorePage: React.FC = () => {
     toast(`Cabang aktif diubah ke: ${selectedStore.name}`, 'success');
 
     if (user?.role === 'cashier') {
-      navigate('/shifts');
+      navigate('/select-terminal');
     } else {
-      navigate('/pos');
+      navigate(targetMenu);
     }
   };
 
   if (isLoadingStores) {
     return (
       <div className="max-w-3xl mx-auto py-12 px-4">
-        <LoadingState message="Memuat daftar cabang..." type="card" rows={2} />
+        <LoadingState message="Memuat daftar cabang operasional..." type="card" rows={2} />
       </div>
     );
   }
@@ -120,9 +188,43 @@ export const SelectStorePage: React.FC = () => {
     );
   }
 
+  if (stores.length === 0) {
+    return (
+      <div className="max-w-lg mx-auto py-16 px-4">
+        <div className="bg-white border-2 border-amber-300 rounded-3xl p-8 text-center shadow-xl">
+          <div className="w-16 h-16 bg-amber-100 border-2 border-amber-300 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-700">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Akses Cabang Belum Diberikan</h2>
+          <p className="text-sm text-slate-600 leading-relaxed mb-6 font-medium">
+            Akun Anda ({user?.username} - Role: {user?.role}) belum memiliki cabang penugasan resmi. Hubungi Administrator atau Owner toko untuk mendaftarkan penempatan cabang Anda.
+          </p>
+          <Button
+            variant="outline"
+            size="md"
+            leftIcon={<LogOut className="w-4 h-4" />}
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            className="w-full text-rose-600 border-rose-300 hover:bg-rose-50"
+          >
+            Keluar dari Akun
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto py-10 px-4">
       <div className="text-center mb-8">
+        {!isGlobal && user?.store_ids && user.store_ids.length > 1 && (
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs font-black text-amber-800 mb-3 shadow-xs">
+            <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>Dibatasi pada {stores.length} Cabang Penugasan Anda</span>
+          </div>
+        )}
         <div className="w-16 h-16 bg-emerald-100 border-2 border-emerald-300 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-700 shadow-sm">
           <Building className="w-8 h-8" />
         </div>
