@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storesApi } from '../../../api/stores.api';
 import { shiftsApi } from '../../../api/shifts.api';
-import { Store, Terminal, Warehouse } from '../../../types/store';
+import { Store, Terminal } from '../../../types/store';
 import { useAppContextStore } from '../../../stores/app-context.store';
 import { Button } from '../../../components/ui/Button';
 import { LoadingState } from '../../../components/feedback/LoadingState';
@@ -12,7 +12,6 @@ import { isGlobalRole, getFocusMenuForRole } from '../../../utils/roleNavigation
 import {
   Store as StoreIcon,
   Monitor,
-  Warehouse as WarehouseIcon,
   ArrowRight,
   Building,
   Check,
@@ -22,7 +21,7 @@ import {
 
 export const SelectStorePage: React.FC = () => {
   const navigate = useNavigate();
-  const { setActiveStore, setActiveTerminal, setActiveWarehouse, activeStoreId, activeStoreName, user, logout } = useAppContextStore();
+  const { setActiveStore, setActiveTerminal, activeStoreId, activeStoreName, user, logout } = useAppContextStore();
   const { toast } = useToast();
 
   const isGlobal = isGlobalRole(user?.role);
@@ -33,9 +32,6 @@ export const SelectStorePage: React.FC = () => {
 
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [selectedTerminal, setSelectedTerminal] = useState<Terminal | null>(null);
-
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
 
   const [isLoadingStores, setIsLoadingStores] = useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -68,12 +64,8 @@ export const SelectStorePage: React.FC = () => {
       if (!isGlobal && accessibleStores.length === 1) {
         const onlyStore = accessibleStores[0];
         try {
-          const [termList, whList] = await Promise.all([
-            storesApi.listTerminals(onlyStore.id),
-            storesApi.listWarehouses(onlyStore.id),
-          ]);
+          const termList = await storesApi.listTerminals(onlyStore.id);
           setActiveStore(onlyStore.id, onlyStore.name);
-          if (whList.length > 0) setActiveWarehouse(whList[0].id);
 
           if (user?.role === 'cashier') {
             const activeShift = await shiftsApi.getActiveShift();
@@ -119,24 +111,17 @@ export const SelectStorePage: React.FC = () => {
   useEffect(() => {
     if (!selectedStore) {
       setTerminals([]);
-      setWarehouses([]);
       setSelectedTerminal(null);
-      setSelectedWarehouse(null);
       return;
     }
 
     async function loadStoreDetails(storeId: string) {
       setIsLoadingDetails(true);
       try {
-        const [termList, whList] = await Promise.all([
-          storesApi.listTerminals(storeId),
-          storesApi.listWarehouses(storeId),
-        ]);
+        const termList = await storesApi.listTerminals(storeId);
         setTerminals(termList);
-        setWarehouses(whList);
 
         if (termList.length > 0) setSelectedTerminal(termList[0]);
-        if (whList.length > 0) setSelectedWarehouse(whList[0]);
       } catch {
         // ignore
       } finally {
@@ -157,10 +142,6 @@ export const SelectStorePage: React.FC = () => {
 
     if (selectedTerminal) {
       setActiveTerminal(selectedTerminal.id, selectedTerminal.code);
-    }
-
-    if (selectedWarehouse) {
-      setActiveWarehouse(selectedWarehouse.id);
     }
 
     toast(`Cabang aktif diubah ke: ${selectedStore.name}`, 'success');
@@ -327,48 +308,6 @@ export const SelectStorePage: React.FC = () => {
               )}
             </div>
 
-            {/* Warehouse */}
-            <div className="space-y-4 pt-5 border-t-2 border-slate-200">
-              <div className="flex items-center gap-2.5 text-base sm:text-lg font-black text-slate-900">
-                <WarehouseIcon className="w-6 h-6 text-purple-600" />
-                <span>3. Gudang Penyimpanan Default</span>
-              </div>
-
-              {warehouses.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {warehouses.map((w) => {
-                    const isSelected = selectedWarehouse?.id === w.id;
-                    return (
-                      <div
-                        key={w.id}
-                        onClick={() => setSelectedWarehouse(w)}
-                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-purple-50 border-purple-600 text-purple-950 shadow-md ring-2 ring-purple-500/20'
-                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 text-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-extrabold text-base text-slate-900">{w.name}</div>
-                            <div className="text-sm font-mono font-bold text-slate-600 mt-0.5">{w.code}</div>
-                          </div>
-                          {isSelected && (
-                            <div className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center">
-                              <Check className="w-4 h-4 stroke-[3]" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-sm text-slate-700 font-medium bg-slate-100 p-4 rounded-xl border border-slate-200">
-                  Gudang utama cabang otomatis digunakan.
-                </div>
-              )}
-            </div>
           </div>
         )}
 

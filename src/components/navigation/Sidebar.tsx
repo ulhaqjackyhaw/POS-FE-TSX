@@ -12,7 +12,6 @@ import {
   CheckSquare,
   BarChart3,
   Building2,
-  Warehouse,
   Monitor,
   Users,
 } from 'lucide-react';
@@ -44,12 +43,6 @@ export const Sidebar: React.FC = () => {
       path: '/products',
       icon: <Package className="w-5 h-5 text-sky-600" />,
       allowed: isOwnerOrAdmin || check('product.read') || check('catalog:read'),
-    },
-    {
-      label: 'Master Data Gudang',
-      path: '/warehouses',
-      icon: <Warehouse className="w-5 h-5 text-indigo-600" />,
-      allowed: isOwnerOrAdmin || check('warehouse.read') || check('store.read') || check('org:manage') || check('inventory.read'),
     },
     {
       label: 'Master Terminal POS',

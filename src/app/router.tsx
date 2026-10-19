@@ -19,7 +19,6 @@ import { TransactionsPage } from '../features/transactions/pages/TransactionsPag
 import { ApprovalsPage } from '../features/approvals/pages/ApprovalsPage';
 import { ReportsPage } from '../features/reports/pages/ReportsPage';
 import { StoreSettingsPage } from '../features/stores/pages/StoreSettingsPage';
-import { WarehousesPage } from '../features/warehouses/pages/WarehousesPage';
 import { TerminalsPage } from '../features/terminals/pages/TerminalsPage';
 import { UsersPage } from '../features/users/pages/UsersPage';
 import { RoleHomeRedirect } from '../components/navigation/RoleHomeRedirect';
@@ -156,11 +155,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'warehouses',
-        element: (
-          <RequirePermission permission="warehouse.read">
-            <WarehousesPage />
-          </RequirePermission>
-        ),
+        element: <Navigate to="/inventory" replace />,
       },
       {
         path: 'terminals',

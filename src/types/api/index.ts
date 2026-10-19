@@ -116,6 +116,7 @@ export interface SalesTransaction {
   terminal_id: ID;
   shift_id: ID;
   user_id: ID;
+  invoice_number?: string;
   receipt_number: string;
   payment_method: string;
   status: 'COMPLETED' | 'VOIDED' | 'REFUNDED' | string;
@@ -132,7 +133,8 @@ export interface SalesTransaction {
 
 export interface InventoryLedger {
   id: ID;
-  warehouse_id: ID;
+  store_id?: ID;
+  warehouse_id?: ID;
   product_id: ID;
   product_name?: string;
   mutation_type: string;
@@ -145,9 +147,19 @@ export interface InventoryLedger {
   created_at: ISODateTime;
 }
 
+export interface CurrentStockItem {
+  product_id: ID;
+  sku: string;
+  product_name: string;
+  category_name?: string;
+  unit: string;
+  base_price: MoneyMinor;
+  quantity: number;
+}
+
 export interface InventoryAdjustRequest {
   store_id: ID;
-  warehouse_id: ID;
+  warehouse_id?: ID;
   product_id: ID;
   quantity_delta: number;
   reason: string;
@@ -191,6 +203,39 @@ export interface TopProductReport {
   name: string;
   quantity_sold: number | string;
   sales_minor: MoneyMinor;
+}
+
+export interface TerminalSummaryReport {
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  transaction_count: number;
+  gross_sales: number;
+  total_discount: number;
+  total_tax: number;
+  net_sales: number;
+  void_count: number;
+  void_amount: number;
+}
+
+export interface TerminalDailyReport {
+  date: string;
+  day_name: string;
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  transaction_count: number;
+  gross_sales: number;
+  total_discount: number;
+  total_tax: number;
+  net_sales: number;
+  void_count: number;
+  void_amount: number;
+}
+
+export interface TerminalReportResponse {
+  summary: TerminalSummaryReport[];
+  daily_breakdown: TerminalDailyReport[];
 }
 
 export interface OfflineTransaction {

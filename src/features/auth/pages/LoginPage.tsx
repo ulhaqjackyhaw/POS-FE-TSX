@@ -25,7 +25,7 @@ import { Store } from '../../../types/store';
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setAuth, setActiveStore, setActiveTerminal, setActiveWarehouse } = useAppContextStore();
+  const { setAuth, setActiveStore, setActiveTerminal } = useAppContextStore();
   const { toast } = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -81,15 +81,8 @@ export const LoginPage: React.FC = () => {
           }
 
           if (storeToSet) {
-            const [termList, whList] = await Promise.all([
-              storesApi.listTerminals(storeToSet.id),
-              storesApi.listWarehouses(storeToSet.id),
-            ]);
-
+            const termList = await storesApi.listTerminals(storeToSet.id);
             setActiveStore(storeToSet.id, storeToSet.name);
-            if (whList.length > 0) {
-              setActiveWarehouse(whList[0].id);
-            }
 
             // Cashier specific routing
             if (userProfile.role === 'cashier') {

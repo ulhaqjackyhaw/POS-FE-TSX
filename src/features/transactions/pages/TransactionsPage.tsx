@@ -14,6 +14,7 @@ import { usePermission } from '../../../hooks/usePermission';
 import { generateIdempotencyKey } from '../../../utils/idempotency';
 import { ReceiptView, ReceiptData } from '../../pos/components/ReceiptView';
 import { useAppContextStore } from '../../../stores/app-context.store';
+import { formatReceiptNumber } from '../../../utils/receipt';
 import {
   Eye,
   XCircle,
@@ -142,9 +143,14 @@ export const TransactionsPage: React.FC = () => {
   };
 
   const handleReprintReceipt = (tx: SalesTransaction) => {
+    const formattedReceipt = formatReceiptNumber(
+      tx.receipt_number || tx.invoice_number,
+      activeTerminalCode,
+      tx.created_at
+    );
     setReceiptData({
       transactionId: tx.id,
-      receiptNumber: tx.receipt_number,
+      receiptNumber: formattedReceipt,
       storeName: activeStoreName || 'Cabang Retail',
       terminalCode: activeTerminalCode || 'POS',
       cashierName: 'Kasir',
@@ -239,8 +245,8 @@ export const TransactionsPage: React.FC = () => {
               <tbody className="divide-y divide-slate-200 text-slate-800">
                 {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-5 font-mono font-black text-slate-900 text-base">
-                      {tx.receipt_number}
+                    <td className="py-4 px-5 font-mono font-black text-slate-900 text-sm sm:text-base whitespace-nowrap">
+                      {formatReceiptNumber(tx.receipt_number || tx.invoice_number, activeTerminalCode, tx.created_at)}
                     </td>
                     <td className="py-4 px-5">
                       <DateTimeText value={tx.created_at} className="text-slate-800 text-sm font-semibold" />
@@ -293,7 +299,7 @@ export const TransactionsPage: React.FC = () => {
         <Dialog
           isOpen={isDetailOpen}
           onClose={() => setIsDetailOpen(false)}
-          title={`Detail Transaksi: ${selectedTx.receipt_number}`}
+          title={`Detail Transaksi: ${formatReceiptNumber(selectedTx.receipt_number || selectedTx.invoice_number, activeTerminalCode, selectedTx.created_at)}`}
           description={`ID Referensi: ${selectedTx.id}`}
           maxWidth="lg"
           footer={
@@ -408,7 +414,7 @@ export const TransactionsPage: React.FC = () => {
         <Dialog
           isOpen={isVoidModalOpen}
           onClose={() => setIsVoidModalOpen(false)}
-          title={`Void Transaksi #${selectedTx.receipt_number}`}
+          title={`Void Transaksi #${formatReceiptNumber(selectedTx.receipt_number || selectedTx.invoice_number, activeTerminalCode, selectedTx.created_at)}`}
           description="Tindakan kritis: Pembatalan transaksi ini akan mengembalikan stok barang ke gudang dan mencatat audit trail."
           maxWidth="md"
           footer={
@@ -457,7 +463,7 @@ export const TransactionsPage: React.FC = () => {
         <Dialog
           isOpen={isRefundModalOpen}
           onClose={() => setIsRefundModalOpen(false)}
-          title={`Refund Transaksi #${selectedTx.receipt_number}`}
+          title={`Refund Transaksi #${formatReceiptNumber(selectedTx.receipt_number || selectedTx.invoice_number, activeTerminalCode, selectedTx.created_at)}`}
           description="Tindakan kritis: Pengembalian dana tunai kepada pelanggan."
           maxWidth="md"
           footer={

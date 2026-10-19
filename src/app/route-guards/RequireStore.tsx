@@ -33,12 +33,8 @@ export const RequireStore: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (storeToSet && isMounted) {
-          const [termList, whList] = await Promise.all([
-            storesApi.listTerminals(storeToSet.id),
-            storesApi.listWarehouses(storeToSet.id),
-          ]);
+          const termList = await storesApi.listTerminals(storeToSet.id);
           setActiveStore(storeToSet.id, storeToSet.name);
-          if (whList.length > 0) setActiveWarehouse(whList[0].id);
           const assignedTerm = user ? termList.find((t) => t.assigned_cashier_id === user.id) : null;
           const termToUse = assignedTerm || (termList.length > 0 ? termList[0] : null);
 

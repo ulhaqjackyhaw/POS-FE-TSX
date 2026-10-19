@@ -55,9 +55,11 @@ export const posApi = {
         { method: 'GET' }
       );
 
-      if (Array.isArray(res)) return res;
-      if (res && 'data' in res && Array.isArray(res.data)) return res.data;
-      return [];
+      const items = Array.isArray(res) ? res : (res && 'data' in res && Array.isArray(res.data) ? res.data : []);
+      return items.map((it: any) => ({
+        ...it,
+        receipt_number: it.receipt_number || it.invoice_number || '',
+      }));
     } catch {
       return [];
     }
