@@ -25,6 +25,18 @@ const PERMISSION_EQUIVALENTS: Record<string, string[]> = {
   'report.products.read': ['report:read', 'report.products.read'],
   'store.read': ['org:manage', 'store.read'],
   'store.create': ['org:manage', 'store.create'],
+  'warehouse.read': ['org:manage', 'inventory:read', 'warehouse.read'],
+  'warehouse.create': ['org:manage', 'warehouse.create'],
+  'warehouse.update': ['org:manage', 'warehouse.update'],
+  'warehouse.delete': ['org:manage', 'warehouse.delete'],
+  'user.read': ['org:manage', 'user.read'],
+  'user.create': ['org:manage', 'user.create'],
+  'user.update': ['org:manage', 'user.update'],
+  'user.delete': ['org:manage', 'user.delete'],
+  'terminal.read': ['org:manage', 'terminal.read', 'store.read'],
+  'terminal.create': ['org:manage', 'terminal.create'],
+  'terminal.update': ['org:manage', 'terminal.update'],
+  'terminal.delete': ['org:manage', 'terminal.delete'],
 };
 
 export function hasPermission(
@@ -34,6 +46,11 @@ export function hasPermission(
 ): boolean {
   if (userRole === 'owner' || userRole === 'admin') {
     return true;
+  }
+  if (userRole === 'store_manager') {
+    if (requiredPermission.startsWith('user.') || requiredPermission.startsWith('terminal.')) {
+      return true;
+    }
   }
   if (!userPermissions || userPermissions.length === 0) {
     return false;

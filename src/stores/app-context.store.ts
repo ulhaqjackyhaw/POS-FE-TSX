@@ -50,7 +50,7 @@ export const useAppContextStore = create<AppContextState>((set) => {
     activeStoreName: storedStoreName,
     activeTerminalId: storedTerminalId,
     activeTerminalCode: storedTerminalCode,
-    activeWarehouseId: null,
+    activeWarehouseId: storedStoreId,
 
     setAuth: (token: string, user: UserSummary) => {
       localStorage.setItem(STORAGE_KEY_TOKEN, token);
@@ -66,7 +66,7 @@ export const useAppContextStore = create<AppContextState>((set) => {
     setActiveStore: (storeId: string, storeName: string) => {
       localStorage.setItem(STORAGE_KEY_STORE_ID, storeId);
       localStorage.setItem(STORAGE_KEY_STORE_NAME, storeName);
-      set({ activeStoreId: storeId, activeStoreName: storeName });
+      set({ activeStoreId: storeId, activeStoreName: storeName, activeWarehouseId: storeId });
     },
 
     setActiveTerminal: (terminalId: string, terminalCode: string) => {
@@ -75,8 +75,8 @@ export const useAppContextStore = create<AppContextState>((set) => {
       set({ activeTerminalId: terminalId, activeTerminalCode: terminalCode });
     },
 
-    setActiveWarehouse: (warehouseId: string) => {
-      set({ activeWarehouseId: warehouseId });
+    setActiveWarehouse: (_warehouseId: string) => {
+      // Stock is now directly tied to activeStoreId
     },
 
     logout: () => {

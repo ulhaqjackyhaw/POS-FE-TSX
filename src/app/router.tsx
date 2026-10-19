@@ -9,6 +9,7 @@ import { RequireActiveShift } from './route-guards/RequireActiveShift';
 
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { SelectStorePage } from '../features/stores/pages/SelectStorePage';
+import { SelectTerminalPage } from '../features/stores/pages/SelectTerminalPage';
 import { PosPage } from '../features/pos/pages/PosPage';
 import { ShiftsPage } from '../features/shifts/pages/ShiftsPage';
 import { ProductsPage } from '../features/products/pages/ProductsPage';
@@ -18,6 +19,9 @@ import { TransactionsPage } from '../features/transactions/pages/TransactionsPag
 import { ApprovalsPage } from '../features/approvals/pages/ApprovalsPage';
 import { ReportsPage } from '../features/reports/pages/ReportsPage';
 import { StoreSettingsPage } from '../features/stores/pages/StoreSettingsPage';
+import { TerminalsPage } from '../features/terminals/pages/TerminalsPage';
+import { UsersPage } from '../features/users/pages/UsersPage';
+import { RoleHomeRedirect } from '../components/navigation/RoleHomeRedirect';
 
 export const router = createBrowserRouter([
   // Public Auth Route
@@ -38,6 +42,18 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <SelectStorePage />
+      </RequireAuth>
+    ),
+  },
+
+  // Terminal Selection (Authenticated + Store Selected)
+  {
+    path: '/select-terminal',
+    element: (
+      <RequireAuth>
+        <RequireStore>
+          <SelectTerminalPage />
+        </RequireStore>
       </RequireAuth>
     ),
   },
@@ -75,7 +91,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/pos" replace />,
+        element: <RoleHomeRedirect />,
       },
       {
         path: 'shifts',
@@ -134,6 +150,26 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="store.read">
             <StoreSettingsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'warehouses',
+        element: <Navigate to="/inventory" replace />,
+      },
+      {
+        path: 'terminals',
+        element: (
+          <RequirePermission permission="terminal.read">
+            <TerminalsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'users',
+        element: (
+          <RequirePermission permission="user.read">
+            <UsersPage />
           </RequirePermission>
         ),
       },

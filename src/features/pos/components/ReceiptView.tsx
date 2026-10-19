@@ -5,6 +5,7 @@ import { MoneyText } from '../../../components/data-display/MoneyText';
 import { DateTimeText } from '../../../components/data-display/DateTimeText';
 import { Printer, Check, WifiOff } from 'lucide-react';
 import { CartItem } from '../../../types/api';
+import { formatReceiptNumber } from '../../../utils/receipt';
 
 export interface ReceiptData {
   transactionId: string;
@@ -101,6 +102,27 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
       }
     >
       {/* Printable Receipt Paper Container */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #receipt-print-area, #receipt-print-area * {
+            visibility: visible !important;
+          }
+          #receipt-print-area {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: ${paperWidth === '58mm' ? '58mm' : '80mm'} !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 4px !important;
+            margin: 0 !important;
+          }
+        }
+      `}</style>
       <div className="flex justify-center py-2">
         <div
           id="receipt-print-area"
@@ -127,14 +149,16 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           )}
 
           {/* Transaction Metadata */}
-          <div className="py-2.5 space-y-1 text-xs text-slate-700 border-b-2 border-dashed border-slate-300">
-            <div className="flex justify-between">
-              <span>No. Struk:</span>
-              <span className="font-bold text-slate-950">{data.receiptNumber}</span>
+          <div className="py-2.5 space-y-1.5 text-xs text-slate-700 border-b-2 border-dashed border-slate-300">
+            <div className="flex justify-between items-start gap-2">
+              <span className="shrink-0 text-slate-600 font-semibold">No. Struk:</span>
+              <span className="font-bold text-slate-950 text-right break-all font-mono tracking-wide text-xs sm:text-sm">
+                {formatReceiptNumber(data.receiptNumber, data.terminalCode, data.createdAt)}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span>Waktu:</span>
-              <DateTimeText value={data.createdAt} className="text-slate-800 text-xs font-medium" />
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 font-semibold">Waktu:</span>
+              <DateTimeText value={data.createdAt} className="text-slate-800 text-xs font-semibold" />
             </div>
           </div>
 

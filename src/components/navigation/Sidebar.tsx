@@ -12,6 +12,8 @@ import {
   CheckSquare,
   BarChart3,
   Building2,
+  Monitor,
+  Users,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -23,7 +25,12 @@ export const Sidebar: React.FC = () => {
       label: 'Terminal POS Kasir',
       path: '/pos',
       icon: <ShoppingBag className="w-5 h-5 text-emerald-600" />,
-      allowed: true,
+      allowed:
+        isOwnerOrAdmin ||
+        check('pos.create') ||
+        check('pos:checkout') ||
+        check('pos:quote') ||
+        check('pos.read'),
     },
     {
       label: 'Shift Kasir & Saldo',
@@ -36,6 +43,12 @@ export const Sidebar: React.FC = () => {
       path: '/products',
       icon: <Package className="w-5 h-5 text-sky-600" />,
       allowed: isOwnerOrAdmin || check('product.read') || check('catalog:read'),
+    },
+    {
+      label: 'Master Terminal POS',
+      path: '/terminals',
+      icon: <Monitor className="w-5 h-5 text-sky-600" />,
+      allowed: isOwnerOrAdmin || check('terminal.read') || check('store.read') || check('org:manage'),
     },
     {
       label: 'Harga Cabang Khusus',
@@ -72,6 +85,12 @@ export const Sidebar: React.FC = () => {
       path: '/settings/stores',
       icon: <Building2 className="w-5 h-5 text-slate-700" />,
       allowed: isOwnerOrAdmin || check('store.read') || check('org:manage'),
+    },
+    {
+      label: 'Manajemen Pengguna',
+      path: '/users',
+      icon: <Users className="w-5 h-5 text-blue-600" />,
+      allowed: isOwnerOrAdmin || check('user.read') || check('org:manage'),
     },
   ];
 

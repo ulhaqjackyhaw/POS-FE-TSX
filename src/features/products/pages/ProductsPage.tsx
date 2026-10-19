@@ -9,8 +9,9 @@ import { LoadingState } from '../../../components/feedback/LoadingState';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import { useToast } from '../../../components/feedback/Toast';
 import { usePermission } from '../../../hooks/usePermission';
-import { Plus, Search, Check, Tag } from 'lucide-react';
+import { Plus, Search, Check, Tag, Upload } from 'lucide-react';
 import { parseRupiahInput, formatRupiah } from '../../../utils/currency';
+import { ImportProductsModal } from '../components/ImportProductsModal';
 
 export const ProductsPage: React.FC = () => {
   const { check, isOwnerOrAdmin } = usePermission();
@@ -21,6 +22,7 @@ export const ProductsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Form states for Create Product
   const [sku, setSku] = useState('');
@@ -100,15 +102,26 @@ export const ProductsPage: React.FC = () => {
         </div>
 
         {canCreate && (
-          <Button
-            variant="primary"
-            size="lg"
-            leftIcon={<Plus className="w-5 h-5" />}
-            onClick={() => setIsModalOpen(true)}
-            className="font-bold shadow-md"
-          >
-            Tambah Produk Baru
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              size="lg"
+              leftIcon={<Upload className="w-5 h-5 text-emerald-600" />}
+              onClick={() => setIsImportModalOpen(true)}
+              className="font-bold shadow-sm"
+            >
+              Upload Excel / CSV
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              leftIcon={<Plus className="w-5 h-5" />}
+              onClick={() => setIsModalOpen(true)}
+              className="font-bold shadow-md"
+            >
+              Tambah Produk Baru
+            </Button>
+          </div>
         )}
       </div>
 
@@ -258,6 +271,13 @@ export const ProductsPage: React.FC = () => {
           </div>
         </form>
       </Dialog>
+
+      {/* Import Products Modal (Excel / CSV) */}
+      <ImportProductsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={loadProducts}
+      />
     </div>
   );
 };

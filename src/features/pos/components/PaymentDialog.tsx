@@ -19,6 +19,7 @@ import {
 } from '../../../utils/idempotency';
 import { ReceiptData } from './ReceiptView';
 import { Banknote, CheckCircle, WifiOff } from 'lucide-react';
+import { formatReceiptNumber } from '../../../utils/receipt';
 
 export interface PaymentDialogProps {
   isOpen: boolean;
@@ -170,7 +171,11 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
       const receiptData: ReceiptData = {
         transactionId: res.transaction_id || clientTxId,
-        receiptNumber: res.receipt_number || `REC-${Date.now().toString().slice(-6)}`,
+        receiptNumber: formatReceiptNumber(
+          res.receipt_number,
+          activeTerminalCode,
+          res.created_at || new Date().toISOString()
+        ),
         storeName: activeStoreName || 'Cabang POS',
         terminalCode: activeTerminalCode || 'POS',
         cashierName: user?.full_name || user?.username,
