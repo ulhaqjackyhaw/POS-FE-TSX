@@ -54,6 +54,8 @@ export const ImportStockAdjustmentModal: React.FC<ImportStockAdjustmentModalProp
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [importSummary, setImportSummary] = useState<{ success: number; failed: number } | null>(null);
+  const [isSuccessPopupOpen, setIsSuccessPopupOpen] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const handleDownloadTemplate = (format: 'xlsx' | 'csv') => {
     const templateData = [
@@ -178,6 +180,8 @@ export const ImportStockAdjustmentModal: React.FC<ImportStockAdjustmentModalProp
     setRows([]);
     setImportSummary(null);
     setProgress(null);
+    setIsSuccessPopupOpen(false);
+    isSubmittingRef.current = false;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -187,6 +191,11 @@ export const ImportStockAdjustmentModal: React.FC<ImportStockAdjustmentModalProp
   const invalidRows = rows.filter((r) => !r.isValid);
 
   const handleStartImport = async () => {
+    // Prevent double-click: atomic check and lock
+    if (isSubmittingRef.current || isProcessing) {
+      return;
+    }
+
     if (!activeStoreId) {
       toast('Cabang toko aktif belum dipilih.', 'error');
       return;
@@ -197,41 +206,47 @@ export const ImportStockAdjustmentModal: React.FC<ImportStockAdjustmentModalProp
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsProcessing(true);
     setProgress({ current: 0, total: validRows.length });
 
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      try {
-        await inventoryApi.adjustStock({
-          store_id: activeStoreId,
-          product_id: row.product_id,
-          quantity_delta: row.quantity_delta,
-          reason: row.reason,
-          reference: row.reference,
-        });
-        successCount++;
-      } catch {
-        failCount++;
+    try {
+      for (let i = 0; i < validRows.length; i++) {
+        const row = validRows[i];
+        try {
+          await inventoryApi.adjustStock({
+            store_id: activeStoreId,
+            product_id: row.product_id,
+            quantity_delta: row.quantity_delta,
+            reason: row.reason,
+            reference: row.reference,
+          });
+          successCount++;
+        } catch {
+          failCount++;
+        }
+        setProgress({ current: i + 1, total: validRows.length });
       }
-      setProgress({ current: i + 1, total: validRows.length });
-    }
 
-    setIsProcessing(false);
-    setImportSummary({ success: successCount, failed: failCount });
+      setImportSummary({ success: successCount, failed: failCount });
 
-    if (successCount > 0) {
-      toast(`Berhasil memproses ${successCount} penyesuaian stok!`, 'success');
-      onSuccess();
-    } else {
-      toast('Gagal memproses penyesuaian stok. Periksa saldo stok atau hak akses.', 'error');
+      if (successCount > 0) {
+        onSuccess();
+        setIsSuccessPopupOpen(true);
+      } else {
+        toast('Gagal memproses penyesuaian stok. Periksa saldo stok atau hak akses.', 'error');
+      }
+    } finally {
+      setIsProcessing(false);
+      isSubmittingRef.current = false;
     }
   };
 
   return (
+    <>
     <Dialog
       isOpen={isOpen}
       onClose={() => {
@@ -449,5 +464,73 @@ export const ImportStockAdjustmentModal: React.FC<ImportStockAdjustmentModalProp
         )}
       </div>
     </Dialog>
+
+    {/* Dedicated Success Popup Modal */}
+    {isSuccessPopupOpen && (
+      <Dialog
+        isOpen={isSuccessPopupOpen}
+        onClose={() => {
+          setIsSuccessPopupOpen(false);
+          handleReset();
+          onClose();
+        }}
+        title={
+          <div className="flex items-center gap-2.5 text-emerald-700">
+            <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+            <span>Penyesuaian Stok Berhasil!</span>
+          </div>
+        }
+        maxWidth="md"
+        footer={
+          <div className="flex items-center justify-end w-full">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                setIsSuccessPopupOpen(false);
+                handleReset();
+                onClose();
+              }}
+              className="px-6 font-bold"
+              autoFocus
+            >
+              Selesai & Tutup
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+            </div>
+            <div>
+              <h4 className="text-base font-black text-slate-900 leading-tight">
+                Data Stok Berhasil Diperbarui
+              </h4>
+              <p className="text-sm font-medium text-slate-600 mt-0.5">
+                Stok pada cabang <strong>{activeStoreName || 'Cabang Aktif'}</strong> telah disinkronkan ke kartu stok dan buku besar (ledger).
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="text-xs font-bold text-slate-500 uppercase">Berhasil Diproses</div>
+              <div className="text-2xl font-black text-emerald-600 mt-1">
+                {importSummary?.success || 0}
+              </div>
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="text-xs font-bold text-slate-500 uppercase">Gagal / Dilewati</div>
+              <div className="text-2xl font-black text-slate-700 mt-1">
+                {importSummary?.failed || 0}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+    )}
+  </>
   );
 };

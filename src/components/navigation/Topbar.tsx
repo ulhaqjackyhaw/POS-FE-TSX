@@ -55,11 +55,11 @@ export const Topbar: React.FC = () => {
 
   return (
     <>
-      <header className="h-20 bg-white border-b-2 border-slate-200 px-4 sm:px-8 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm">
+      <header className="h-16 sm:h-20 bg-white border-b-2 border-slate-200 px-3 sm:px-6 lg:px-8 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm">
         {/* Left: Store & Terminal Context */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div
-            className={`flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm sm:text-base ${
+            className={`flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border text-xs sm:text-base ${
               !canSwitchBranch
                 ? 'bg-slate-50 border-slate-300 text-slate-800'
                 : 'bg-emerald-50 border-emerald-300 text-slate-900'
@@ -68,7 +68,7 @@ export const Topbar: React.FC = () => {
           >
             <StoreIcon className="w-5 h-5 text-emerald-600 shrink-0" />
             <div className="flex flex-col">
-              <span className="font-extrabold text-slate-900 leading-tight">
+              <span className="font-extrabold text-slate-900 leading-tight max-w-[120px] sm:max-w-none truncate">
                 {activeStoreName || 'Pilih Cabang'}
               </span>
               {!isGlobal && (

@@ -7,6 +7,7 @@ import { Product } from '../../../types/api';
 import { useAppContextStore } from '../../../stores/app-context.store';
 import { useToast } from '../../../components/feedback/Toast';
 import { BarcodeInput } from '../../../components/scanner/BarcodeInput';
+import { ShoppingBag, ChevronUp } from 'lucide-react';
 import { ProductGrid } from '../components/ProductGrid';
 import { CartPanel } from '../components/CartPanel';
 import { PaymentDialog } from '../components/PaymentDialog';
@@ -90,7 +91,9 @@ export const PosPage: React.FC = () => {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   const {
@@ -165,12 +168,18 @@ export const PosPage: React.FC = () => {
     );
 
     if (found) {
+      const stock = found.current_stock ?? found.stock;
+      if (stock !== undefined && stock <= 0) {
+        toast(`Stok ${found.name} habis (0)`, 'error');
+        return;
+      }
+
       addItem({
         productId: found.id,
         sku: found.sku,
         barcode: found.barcode,
         name: found.name,
-        unitPriceMinor: found.price_minor || found.base_price || 0,
+        unitPriceMinor: found.effective_price || found.price_minor || found.base_price || 0,
       });
       toast(`+1 ${found.name} ditambahkan`, 'info');
     } else {
@@ -179,20 +188,31 @@ export const PosPage: React.FC = () => {
   };
 
   const handleAddToCart = (product: Product) => {
+    const stock = product.current_stock ?? product.stock;
+    if (stock !== undefined && stock <= 0) {
+      toast(`Stok ${product.name} habis (0)`, 'error');
+      return;
+    }
+
     addItem({
       productId: product.id,
       sku: product.sku,
       barcode: product.barcode,
       name: product.name,
-      unitPriceMinor: product.price_minor || product.base_price || 0,
+      unitPriceMinor: product.effective_price || product.price_minor || product.base_price || 0,
     });
   };
 
   // Keyboard Shortcuts Hook
   usePosShortcuts({
     onFocusSearch: () => {
-      const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Scan barcode"]');
-      searchInput?.focus();
+      const searchInput =
+        document.getElementById('pos-barcode-input') as HTMLInputElement ||
+        document.querySelector<HTMLInputElement>('#pos-barcode-input, input[placeholder*="Ketik nama"], input[placeholder*="barcode"]');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
     },
     onOpenDiscount: () => {
       // Trigger cart discount
@@ -211,21 +231,39 @@ export const PosPage: React.FC = () => {
     isModalOpen: isPaymentOpen || !!receiptData,
   });
 
+  const totalItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
-    <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
+    <div className="relative flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
       {/* Left Pane (~60%): Search Barcode & Product Catalog */}
-      <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200 space-y-4">
-        {/* Top Search & Barcode Wedge Input */}
+      <div className="flex-1 flex flex-col p-3 sm:p-5 lg:p-6 overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200 space-y-3 sm:space-y-4 pb-20 lg:pb-6">
+        {/* Top Search & Barcode Wedge Input with Auto-suggestion */}
         <BarcodeInput
+          products={products}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onScan={handleBarcodeScan}
-          placeholder="Scan barcode scanner atau ketik SKU / Nama produk (F1)..."
+          onSelectProduct={(product) => {
+            handleAddToCart(product);
+            setSearchQuery('');
+          }}
+          placeholder="Ketik nama / SKU produk atau scan barcode scanner (F1)..."
           autoFocus
         />
 
-        {/* Product Catalog Grid */}
+        {/* Product Catalog Grid - filtered in real-time when user types */}
         <div className="flex-1 overflow-hidden">
           <ProductGrid
-            products={products}
+            products={
+              searchQuery.trim()
+                ? products.filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                      p.sku.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                      (p.barcode && p.barcode.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                  )
+                : products
+            }
             isLoading={isLoadingProducts}
             onAddToCart={handleAddToCart}
             onSeedDemo={() => setProducts(DEFAULT_DEMO_PRODUCTS)}
@@ -233,8 +271,64 @@ export const PosPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Pane (~40%): Cart, Calculation & Pay */}
-      <div className="w-full lg:w-[460px] xl:w-[500px] shrink-0 h-full overflow-hidden flex flex-col bg-white">
+      {/* Mobile Sticky Cart Trigger Bottom Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t-2 border-slate-200 px-4 py-3 flex items-center justify-between shadow-2xl">
+        <div
+          onClick={() => setIsMobileCartOpen(true)}
+          className="flex items-center gap-3 cursor-pointer"
+        >
+          <div className="relative p-2.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-700/25">
+            <ShoppingBag className="w-5 h-5" />
+            {totalItemCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+                {totalItemCount}
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-500">Keranjang ({totalItemCount} item)</div>
+            <div className="text-base font-black text-slate-900 leading-tight">
+              Rp {totalMinor.toLocaleString('id-ID')}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMobileCartOpen(true)}
+            className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <span>Buka Keranjang</span>
+            <ChevronUp className="w-4 h-4" />
+          </button>
+          <button
+            disabled={cart.length === 0}
+            onClick={() => {
+              if (cart.length > 0) {
+                setIsPaymentOpen(true);
+              }
+            }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-extrabold cursor-pointer transition-all shadow-md shadow-emerald-700/20 disabled:cursor-not-allowed"
+          >
+            Bayar
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Drawer / Backdrop for Cart */}
+      {isMobileCartOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 transition-opacity"
+          onClick={() => setIsMobileCartOpen(false)}
+        />
+      )}
+
+      {/* Right Pane: Cart Panel (Drawer on Mobile, Sidebar on Desktop) */}
+      <div
+        className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] md:w-[460px] bg-white transition-transform duration-300 ease-in-out lg:static lg:w-[440px] xl:w-[480px] lg:z-auto lg:h-full lg:translate-x-0 ${
+          isMobileCartOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:translate-x-0'
+        }`}
+      >
         <CartPanel
           subtotalMinor={subtotalMinor}
           discountMinor={discountMinor}
@@ -242,8 +336,12 @@ export const PosPage: React.FC = () => {
           totalMinor={totalMinor}
           isQuoteLoading={isQuoteLoading}
           warnings={warnings}
-          onOpenPayment={() => setIsPaymentOpen(true)}
+          onOpenPayment={() => {
+            setIsMobileCartOpen(false);
+            setIsPaymentOpen(true);
+          }}
           canPay={cart.length > 0}
+          onCloseMobile={() => setIsMobileCartOpen(false)}
         />
       </div>
 

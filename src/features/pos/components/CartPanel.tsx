@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { DiscountDialog } from './DiscountDialog';
 import {
   Trash2,
+  X,
   Plus,
   Minus,
   Tag,
@@ -24,6 +25,7 @@ export interface CartPanelProps {
   warnings?: Array<{ code: string; message: string }>;
   onOpenPayment: () => void;
   canPay: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const CartPanel: React.FC<CartPanelProps> = ({
@@ -35,6 +37,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({
   warnings = [],
   onOpenPayment,
   canPay,
+  onCloseMobile,
 }) => {
   const { cart, cartDiscount, updateQuantity, removeItem, clearCart, setItemDiscount, setCartDiscount } =
     usePosStore();
@@ -44,12 +47,21 @@ export const CartPanel: React.FC<CartPanelProps> = ({
   return (
     <div className="flex flex-col h-full bg-white border-l-2 border-slate-200 shadow-xl">
       {/* Cart Header */}
-      <div className="px-6 py-5 border-b-2 border-slate-200 flex items-center justify-between bg-slate-50">
-        <div className="flex items-center gap-2.5">
-          <ShoppingCart className="w-6 h-6 text-emerald-600" />
-          <h2 className="text-base sm:text-lg font-black text-slate-900">Keranjang Kasir</h2>
-          <span className="text-sm px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 font-mono font-bold">
-            {cart.reduce((sum, item) => sum + item.quantity, 0)} item
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b-2 border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-lg cursor-pointer"
+              title="Tutup Keranjang"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 shrink-0" />
+          <h2 className="text-base sm:text-lg font-black text-slate-900">Keranjang</h2>
+          <span className="text-xs sm:text-sm px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-mono font-bold">
+            {cart.reduce((sum, item) => sum + item.quantity, 0)}
           </span>
         </div>
 
@@ -60,11 +72,11 @@ export const CartPanel: React.FC<CartPanelProps> = ({
                 clearCart();
               }
             }}
-            className="text-xs sm:text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition-colors p-1 rounded-lg hover:bg-rose-50"
+            className="text-xs sm:text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition-colors p-1.5 rounded-lg hover:bg-rose-50"
             title="Bersihkan Keranjang (Esc)"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Bersihkan</span>
+            <span className="hidden sm:inline">Bersihkan</span>
           </button>
         )}
       </div>
@@ -111,19 +123,38 @@ export const CartPanel: React.FC<CartPanelProps> = ({
 
                 {/* Item Actions */}
                 <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1 border border-slate-300 shadow-sm">
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-300 shadow-sm">
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      className="w-8 h-8 rounded-lg bg-white text-slate-800 hover:bg-slate-200 flex items-center justify-center cursor-pointer font-bold shadow-xs border border-slate-200"
+                      className="w-8 h-8 rounded-lg bg-white text-slate-800 hover:bg-slate-200 flex items-center justify-center cursor-pointer font-bold shadow-xs border border-slate-200 active:scale-95 transition-transform"
+                      title="Kurangi 1"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-10 text-center font-mono font-black text-slate-900 text-sm sm:text-base">
-                      {item.quantity}
-                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99999"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val > 0) {
+                          updateQuantity(item.productId, val);
+                        } else if (e.target.value === '') {
+                          // Allow typing temporary empty or 1
+                          updateQuantity(item.productId, 1);
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="w-12 h-8 text-center font-mono font-black text-slate-950 text-sm sm:text-base bg-white rounded-lg border border-slate-200 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-inner"
+                      title="Klik untuk ketik manual jumlah qty"
+                    />
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      className="w-8 h-8 rounded-lg bg-white text-slate-800 hover:bg-slate-200 flex items-center justify-center cursor-pointer font-bold shadow-xs border border-slate-200"
+                      className="w-8 h-8 rounded-lg bg-white text-slate-800 hover:bg-slate-200 flex items-center justify-center cursor-pointer font-bold shadow-xs border border-slate-200 active:scale-95 transition-transform"
+                      title="Tambah 1"
                     >
                       <Plus className="w-4 h-4" />
                     </button>

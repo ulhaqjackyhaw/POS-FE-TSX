@@ -11,8 +11,10 @@ export interface Product {
   unit: string;
   base_price?: MoneyMinor;
   price_minor?: MoneyMinor; // store specific price if loaded
+  effective_price?: MoneyMinor;
   is_active: boolean;
   stock?: number;
+  current_stock?: number;
   created_at?: ISODateTime;
   updated_at?: ISODateTime;
 }
